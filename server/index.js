@@ -3,13 +3,16 @@ const app = express();
 const cors = require("cors");
 const port = 3042;
 
+const secp = require("ethereum-cryptography/secp256k1");
+const { keccak256 } = require("ethereum-cryptography/keccak");
+
 app.use(cors());
 app.use(express.json());
 
 const balances = {
-  "0x1": 100,
-  "0x2": 50,
-  "0x3": 75,
+  "dc5e384ea5b03dac650fd87ca60efce6fde1e300": 100,
+  "36d068f3933a7bd318b724ea1977589f7b70bf39": 50,
+  "76c90c852c0dfc102a9ae958afa46f660b01ae08": 75,
 };
 
 app.get("/balance/:address", (req, res) => {
@@ -18,8 +21,10 @@ app.get("/balance/:address", (req, res) => {
   res.send({ balance });
 });
 
-app.post("/send", (req, res) => {
-  const { sender, recipient, amount } = req.body;
+app.post("/send", async (req, res) => {
+  const { signature, recoveryBit, hashedMessage, recipient, amount } = req.body;
+  const publicKey = await secp.recoverPublicKey(hashedMessage, signature, recoveryBit);
+  const sender = getAddress(publicKey);
 
   setInitialBalance(sender);
   setInitialBalance(recipient);
@@ -41,4 +46,10 @@ function setInitialBalance(address) {
   if (!balances[address]) {
     balances[address] = 0;
   }
+}
+
+function getAddress(publicKey) {
+  const slicedPublicKey = publicKey.slice(1);
+  const hash = keccak256(slicedPublicKey);
+  return hash.slice(-20);
 }
